@@ -28,9 +28,10 @@ int main(){
     float D = d;
     float mask[TMP_SIDE*TMP_SIDE];
     float col[TMP_SIDE];
-    float out[0];
+    float tmp;
+    //float out[0];
     hls::stream<data_struct> stream_out("stream_out");
-    float ka =666;
+    //float ka =666;
 /*
     	ap_uint<512> test[25];
         float vec[160];
@@ -82,7 +83,7 @@ int main(){
             }
         }
 */
-    for(int r=0; r<RES_SIDE; ++r){
+    for(int r=0; r<=RES_SIDE; ++r){
         new_row = true;
         for(int x=0; x<TMP_SIDE;++x){
             for(int y=0; y<TMP_SIDE;++y){
@@ -91,10 +92,12 @@ int main(){
         }
 
         zncc((ap_uint<512>*)mask,(ap_uint<512>*)t,stream_out,B,D,new_row,setup,end);
-        float tmp = stream_out.read().data;
+
         //res[r][0]=out[0];
-        res[r][0]=tmp;
-        //printf("%f\n",res[r][0]);
+
+        tmp=stream_out.read().data;
+        res[r][0]= tmp;
+        printf("[%d,%d]->%f\n",r,0,res[r][0]);
         setup=false;
         for(int c=1; c<RES_SIDE;++c){
             new_row=false;
@@ -103,7 +106,8 @@ int main(){
             }
 
             zncc((ap_uint<512>*)col,(ap_uint<512>*)t,stream_out,B,D,new_row,setup,end);
-            res[r][c]=stream_out.read().data;
+            tmp=stream_out.read().data;
+            res[r][c]= tmp;
             //res[r][c]=out[0];
             printf("[%d,%d]-> %f\n",r,c,res[r][0]);
         }

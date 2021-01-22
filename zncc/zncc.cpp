@@ -19,16 +19,19 @@ void zncc(ap_uint<512> *mask,ap_uint<512> *t, hls::stream<data_struct> &out, flo
 //interfaces for the axi master communication
 #pragma HLS INTERFACE m_axi depth=6400 port=mask bundle=gmem0
 #pragma HLS INTERFACE m_axi depth=6400 port=t bundle=gmem1
-#pragma HLS INTERFACE m_axi depth=6400 port=res bundle=gmem2
+//#pragma HLS INTERFACE m_axi depth=6400 port=res bundle=gmem2
+#pragma HLS INTERFACE axis port=stream_out
 
 //interfaces for the addresses of the variables
 #pragma HLS INTERFACE s_axilite port=mask
 #pragma HLS INTERFACE s_axilite port=t
-#pragma HLS INTERFACE s_axilite port=res
+//#pragma HLS INTERFACE s_axilite port=res
 #pragma HLS INTERFACE s_axilite port=b
 #pragma HLS INTERFACE s_axilite port=d
+
 //interface for start/stop the kernel
 #pragma HLS INTERFACE s_axilite port=return
+
 //local variables
 	static ap_uint<512> lmask[N], lt[N];//look for size
 	float lcol[COL];
@@ -41,7 +44,7 @@ void zncc(ap_uint<512> *mask,ap_uint<512> *t, hls::stream<data_struct> &out, flo
 	static float pow2=0;
 	static float f_col=0;
 	static float f_pow=0;
-	float score[0];
+	//float score[0];
 	data_struct out_data;
 	ld=d;
 	lb=b; 
@@ -58,6 +61,7 @@ void zncc(ap_uint<512> *mask,ap_uint<512> *t, hls::stream<data_struct> &out, flo
 		f_col=0;
 		memcpy(lmask,mask,sizeof(ap_uint<512>)*N);
 		loopRow:for(int r; r<ROW;r++){
+		//should be unroll to be optimal since row are independent
 		#pragma HLS PIPELINE
 
 			unsigned int tmp = lmask[r*N_AP].range(31,0);
@@ -70,7 +74,7 @@ void zncc(ap_uint<512> *mask,ap_uint<512> *t, hls::stream<data_struct> &out, flo
 			#pragma HLS PIPELINE
 
 				loopElem:for(int j=0;j<16;j++){
-
+					//this loop is unrolled completely and the 16 values inside each element of the mask can be computed in parallel
 					int upper = (j+1)*32-1;
 					int lower = j*32;
 
@@ -128,13 +132,23 @@ void zncc(ap_uint<512> *mask,ap_uint<512> *t, hls::stream<data_struct> &out, flo
 					float m_val = *((float *)&m_1);
 					float t_val = *((float *)&t_tmp);
 
-					txm_acc[j]+= t_val*m_val;
+					txm_acc[j] += t_val*m_val;
 					//shift
 					lmask[r*N_AP+c].range(upper,lower) = m_1;
 
 				}
+				//since each cell contains 16 values we need to shift the value of the 17th in the 16th cell
+				//when c=4 we access a value that doesn't exist
 				unsigned int m_1 = lmask[r*N_AP+c+1].range(31,0);
+				float m_val = *((float *)&m_1);
+				unsigned int t_1 = lt[r*N_AP+c].range(511,480);
+				float t_val0 = *((float *)&t_1);
+
+				txm += m_val*t_val0;
+				//actual shift
 				lmask[r*N_AP+c].range(511,480) = m_1;
+
+
 				lmask[r*N_AP+4].range(511,480)= *((unsigned int *)&lcol[r]);
 				unsigned int t_tmp =lt[r*N_AP+4].range(511,480);
 				float t_val = *((float *)&t_tmp);
